@@ -1,11 +1,36 @@
-// A working news-image-daily entry (Node 22, standard library only): its image is the entry.png beside this file, and
-// the program copies it to /output/entry.png. A starting point, not a winner: replace the image. The gate takes a
-// whole PNG or JPEG of at most 1 MiB and 1024 by 1024 pixels, and the judge sees exactly the bytes copied.
+// Hand-in program for the news-image-20261119 entry.
 //
-// Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
+// The entry itself is the finished front-page image, entry.png, which lives
+// next to this file. All this program does is deliver it: it copies the
+// image into the output directory the grader points us at, under the same
+// file name, so the judge receives the exact bytes we committed.
+//
+// The grader sets MAKEFUN_OUTPUT_DIR to its scratch output directory; when
+// the variable is absent we fall back to /output, the grader's mount point.
+// Run it locally the same way the grader does:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, mkdirSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-copyFileSync(new URL('./entry.png', import.meta.url), join(process.env.MAKEFUN_OUTPUT_DIR ?? '/output', 'entry.png'));
+// The image travels with the code: resolve it relative to this file rather
+// than the caller's working directory, which the grader does not guarantee.
+const imageSource = join(dirname(fileURLToPath(import.meta.url)), 'entry.png');
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+const imageTarget = join(outputDir, 'entry.png');
+
+// The grader normally creates the output directory for us, but creating it
+// when it is missing costs nothing and keeps local runs one step shorter.
+mkdirSync(outputDir, { recursive: true });
+copyFileSync(imageSource, imageTarget);
+
+// A truncated or partial copy would hand the judge a broken image, so check
+// the delivered file against the source before reporting success.
+const sourceBytes = statSync(imageSource).size;
+const copiedBytes = statSync(imageTarget).size;
+if (copiedBytes !== sourceBytes) {
+  throw new Error(`copy mismatch: source is ${sourceBytes} bytes, output is ${copiedBytes}`);
+}
+
+console.log(`handed in entry.png (${copiedBytes} bytes) -> ${imageTarget}`);
